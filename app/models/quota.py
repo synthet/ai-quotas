@@ -67,6 +67,8 @@ class ProviderSnapshot(BaseModel):
     surface: QuotaSurface | None = None
     status: ProviderStatus
     message: str = ""
+    error_code: str | None = None
+    collector_source: str | None = None
     fetched_at: datetime = Field(default_factory=datetime.utcnow)
     metrics: list[QuotaMetric] = Field(default_factory=list)
 

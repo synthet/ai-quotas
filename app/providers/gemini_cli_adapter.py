@@ -1,5 +1,7 @@
+import asyncio
 import json
 import os
+import shutil
 import time
 from datetime import datetime
 from pathlib import Path
@@ -7,68 +9,29 @@ from pathlib import Path
 import httpx
 
 from app.config import Settings
-from app.util.google_oauth import oauth_access_token_expired, resolve_oauth_client_id
-from app.models.quota import MetricSource, MetricWindow, ProviderSnapshot, ProviderStatus, QuotaMetric
+from app.models.quota import (
+    MetricSource,
+    ProviderSnapshot,
+    ProviderStatus,
+    QuotaSurface,
+)
 from app.providers.base import ProviderAdapter
+from app.providers.gemini_cli_quota import (
+    companion_project_from_load_response,
+    load_code_assist_body,
+    parse_quota_payload,
+    parse_stats_cli_json,
+    quota_error_status,
+    retrieve_quota_bodies,
+)
+from app.util.google_oauth import oauth_access_token_expired, resolve_oauth_client_id
 
 LOAD_CODE_ASSIST = "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist"
 RETRIEVE_QUOTA = "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 
-_NO_LICENSE_MARKERS = (
-    "valid license",
-    "do not have a valid license",
-    "enterprise",
-    "code assist",
-)
-
-
-def _quota_error_status(status_code: int, body: str) -> tuple[ProviderStatus, str]:
-    lower = body.lower()
-    if status_code == 401:
-        return (
-            ProviderStatus.SKIPPED,
-            (
-                "Cloud Code session rejected. Individual Gemini CLI sign-in is deprecated; "
-                "use Antigravity (agy) for subscription quota in this dashboard."
-            ),
-        )
-    if status_code == 403 and any(m in lower for m in _NO_LICENSE_MARKERS):
-        return (
-            ProviderStatus.UNAVAILABLE,
-            (
-                "No Gemini Code Assist / enterprise license for this Google account. "
-                "This collector calls Cloud Code quota APIs — a GOOGLE_API_KEY or "
-                "GEMINI_API_KEY does not apply. For personal subscription quota use "
-                "Antigravity (agy /usage). Disable this card: INCLUDE_GEMINI_CLI_COLLECTOR=false "
-                "and QUOTA_SCOPE=cli."
-            ),
-        )
-    if status_code == 403:
-        return (
-            ProviderStatus.UNAVAILABLE,
-            (
-                "Cloud Code quota API denied access (HTTP 403). Not an AI Studio API-key issue. "
-                "Use Antigravity for consumer quota, or set INCLUDE_GEMINI_CLI_COLLECTOR=false."
-            ),
-        )
-    return (
-        ProviderStatus.ERROR,
-        f"Quota API HTTP {status_code}: {body[:240]}",
-    )
-
-
-def _window_from_label(label: str) -> MetricWindow:
-    lower = label.lower()
-    if "week" in lower:
-        return MetricWindow.WEEKLY
-    if "5" in lower and "hour" in lower:
-        return MetricWindow.FIVE_H
-    if "day" in lower or "daily" in lower:
-        return MetricWindow.DAILY
-    if "hour" in lower:
-        return MetricWindow.FIVE_H
-    return MetricWindow.UNKNOWN
+COLLECTOR_STATS = "gemini_cli_stats"
+COLLECTOR_CODE_ASSIST = "gemini_cli_code_assist"
 
 
 class GeminiCliAdapter(ProviderAdapter):
@@ -76,15 +39,30 @@ class GeminiCliAdapter(ProviderAdapter):
 
     async def fetch(self, client: httpx.AsyncClient, settings: Settings) -> ProviderSnapshot:
         now = datetime.utcnow()
+        gemini_exe = settings.gemini_command or shutil.which("gemini")
+
+        stats_metrics = await self._fetch_stats_cli(gemini_exe, settings.gemini_cli_timeout_sec)
+        if stats_metrics:
+            return ProviderSnapshot(
+                provider=self.provider_id,
+                surface=QuotaSurface.GEMINI_CLI,
+                status=ProviderStatus.OK,
+                message="Gemini CLI `/stats model`",
+                collector_source=COLLECTOR_STATS,
+                fetched_at=now,
+                metrics=stats_metrics,
+            )
+
         creds_path = settings.gemini_dir / "oauth_creds.json"
         if not creds_path.exists():
             return ProviderSnapshot(
                 provider=self.provider_id,
+                surface=QuotaSurface.GEMINI_CLI,
                 status=ProviderStatus.SKIPPED,
                 message=(
-                    f"No OAuth creds at {creds_path}. Legacy Gemini CLI quota is deprecated; "
-                    "use Antigravity (agy) instead."
+                    f"No OAuth creds at {creds_path}. Run Gemini CLI auth or use Antigravity (agy)."
                 ),
+                collector_source=COLLECTOR_CODE_ASSIST,
                 fetched_at=now,
             )
 
@@ -93,8 +71,10 @@ class GeminiCliAdapter(ProviderAdapter):
         except (OSError, json.JSONDecodeError) as e:
             return ProviderSnapshot(
                 provider=self.provider_id,
+                surface=QuotaSurface.GEMINI_CLI,
                 status=ProviderStatus.ERROR,
                 message=f"Failed to read oauth_creds.json: {e}",
+                collector_source=COLLECTOR_CODE_ASSIST,
                 fetched_at=now,
             )
 
@@ -103,8 +83,10 @@ class GeminiCliAdapter(ProviderAdapter):
         except Exception as e:
             return ProviderSnapshot(
                 provider=self.provider_id,
+                surface=QuotaSurface.GEMINI_CLI,
                 status=ProviderStatus.ERROR,
                 message=f"OAuth refresh failed: {e}",
+                collector_source=COLLECTOR_CODE_ASSIST,
                 fetched_at=now,
             )
 
@@ -113,27 +95,42 @@ class GeminiCliAdapter(ProviderAdapter):
             "Content-Type": "application/json",
         }
 
-        assist_body = self._code_assist_body(settings)
-        try:
-            await client.post(LOAD_CODE_ASSIST, headers=headers, json=assist_body)
-            quota_resp = await client.post(RETRIEVE_QUOTA, headers=headers, json={})
-        except httpx.HTTPError as e:
+        env_project = (
+            os.environ.get("GOOGLE_CLOUD_PROJECT")
+            or os.environ.get("GOOGLE_CLOUD_PROJECT_ID")
+            or ""
+        )
+
+        quota_resp, last_error = await self._retrieve_quota_with_fallback(
+            client,
+            headers,
+            settings.gemini_cli_use_env_gcp_project,
+            env_project,
+        )
+
+        if quota_resp is None:
             return ProviderSnapshot(
                 provider=self.provider_id,
+                surface=QuotaSurface.GEMINI_CLI,
                 status=ProviderStatus.ERROR,
-                message=f"Cloud Code quota request failed: {e}",
+                message=last_error or "retrieveUserQuota failed",
+                collector_source=COLLECTOR_CODE_ASSIST,
                 fetched_at=now,
             )
 
         if quota_resp.status_code >= 400:
-            status, message = _quota_error_status(
+            status, message, error_code = quota_error_status(
                 quota_resp.status_code, quota_resp.text or ""
             )
             return ProviderSnapshot(
                 provider=self.provider_id,
+                surface=QuotaSurface.GEMINI_CLI,
                 status=status,
                 message=message,
+                error_code=error_code,
+                collector_source=COLLECTOR_CODE_ASSIST,
                 fetched_at=now,
+                metrics=[],
             )
 
         try:
@@ -141,39 +138,82 @@ class GeminiCliAdapter(ProviderAdapter):
         except Exception:
             return ProviderSnapshot(
                 provider=self.provider_id,
+                surface=QuotaSurface.GEMINI_CLI,
                 status=ProviderStatus.DEGRADED,
                 message="Unexpected quota response format",
+                collector_source=COLLECTOR_CODE_ASSIST,
                 fetched_at=now,
             )
 
-        metrics = self._parse_quota_response(data)
+        metrics = parse_quota_payload(data, MetricSource.CLOUDCODE_INTERNAL)
         status = ProviderStatus.OK if metrics else ProviderStatus.DEGRADED
         return ProviderSnapshot(
             provider=self.provider_id,
+            surface=QuotaSurface.GEMINI_CLI,
             status=status,
-            message="Quota from Cloud Code (unofficial)",
+            message="Gemini CLI Code Assist quota (retrieveUserQuota)",
+            collector_source=COLLECTOR_CODE_ASSIST,
             fetched_at=now,
             metrics=metrics,
         )
 
-    def _code_assist_body(self, settings: Settings) -> dict:
-        project = (
-            os.environ.get("GOOGLE_CLOUD_PROJECT")
-            or os.environ.get("GOOGLE_CLOUD_PROJECT_ID")
-            or ""
-        )
-        body: dict = {
-            "metadata": {
-                "ideType": "IDE_UNSPECIFIED",
-                "platform": "PLATFORM_UNSPECIFIED",
-                "pluginType": "GEMINI",
-            }
-        }
-        if project:
-            body["cloudaicompanionProject"] = (
-                project if project.startswith("projects/") else f"projects/{project}"
+    async def _retrieve_quota_with_fallback(
+        self,
+        client: httpx.AsyncClient,
+        headers: dict[str, str],
+        use_env_project: bool,
+        env_project: str,
+    ) -> tuple[httpx.Response | None, str | None]:
+        try:
+            last: httpx.Response | None = None
+            for body in retrieve_quota_bodies(None):
+                resp = await client.post(RETRIEVE_QUOTA, headers=headers, json=body)
+                last = resp
+                if resp.status_code < 400:
+                    return resp, None
+
+            assist_body = load_code_assist_body(use_env_project, env_project)
+            assist_resp = await client.post(LOAD_CODE_ASSIST, headers=headers, json=assist_body)
+            companion: str | None = None
+            if assist_resp.status_code < 400:
+                try:
+                    companion = companion_project_from_load_response(assist_resp.json())
+                except Exception:
+                    companion = None
+
+            if companion:
+                for body in retrieve_quota_bodies(companion):
+                    resp = await client.post(RETRIEVE_QUOTA, headers=headers, json=body)
+                    last = resp
+                    if resp.status_code < 400:
+                        return resp, None
+
+            if last is not None:
+                return last, None
+            return None, "retrieveUserQuota returned no response"
+        except httpx.HTTPError as e:
+            return None, f"Cloud Code quota request failed: {e}"
+
+    async def _fetch_stats_cli(self, gemini_exe: str | None, timeout_sec: float) -> list:
+        if not gemini_exe:
+            return []
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                gemini_exe,
+                "-p",
+                "/stats model",
+                "-o",
+                "json",
+                "-y",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
-        return body
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout_sec)
+        except (asyncio.TimeoutError, OSError):
+            return []
+        if proc.returncode != 0 and not stdout:
+            return []
+        return parse_stats_cli_json(stdout.decode("utf-8", errors="replace"))
 
     async def _ensure_access_token(
         self,
@@ -219,58 +259,3 @@ class GeminiCliAdapter(ProviderAdapter):
         except OSError:
             pass
         return str(new_access)
-
-    def _parse_quota_response(self, data: dict) -> list[QuotaMetric]:
-        metrics: list[QuotaMetric] = []
-        buckets = data.get("quotaBuckets") or data.get("quotas") or data.get("userQuota") or []
-        if isinstance(data, dict) and not buckets:
-            for key, val in data.items():
-                if isinstance(val, list):
-                    buckets = val
-                    break
-
-        if not isinstance(buckets, list):
-            return metrics
-
-        for i, bucket in enumerate(buckets):
-            if not isinstance(bucket, dict):
-                continue
-            label = (
-                bucket.get("displayName")
-                or bucket.get("modelId")
-                or bucket.get("name")
-                or bucket.get("tier")
-                or f"quota_{i}"
-            )
-            frac = bucket.get("remainingFraction")
-            remaining_amt = bucket.get("remainingAmount")
-            remaining: float | None = None
-            limit = 100.0
-            if frac is not None:
-                try:
-                    remaining = float(frac) * 100.0
-                except (TypeError, ValueError):
-                    pass
-            elif remaining_amt is not None:
-                try:
-                    remaining = float(remaining_amt)
-                    limit = 100.0
-                except (TypeError, ValueError):
-                    pass
-
-            if remaining is None:
-                continue
-
-            used = limit - remaining if limit is not None else None
-            metrics.append(
-                QuotaMetric(
-                    name=str(label),
-                    window=_window_from_label(str(label)),
-                    used=used,
-                    limit=limit,
-                    remaining=remaining,
-                    unit="%",
-                    source=MetricSource.CLOUDCODE_INTERNAL,
-                )
-            )
-        return metrics

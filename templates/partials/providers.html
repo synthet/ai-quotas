@@ -15,6 +15,9 @@
       </h2>
       <span class="badge">{{ p.status.value }}</span>
     </div>
+    {% if p.collector_source %}
+    <p class="source-line"><code>{{ p.collector_source }}</code>{% if p.error_code %} · <code>{{ p.error_code }}</code>{% endif %}</p>
+    {% endif %}
     {% if p.message %}
     <p class="message" title="{{ p.message }}">{{ p.message }}</p>
     {% endif %}

@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     antigravity_command: str = ""
     claude_command: str = ""
     claude_usage_timeout_sec: float = 90.0
+    gemini_command: str = ""
+    gemini_cli_timeout_sec: float = 45.0
+    # Passing GOOGLE_CLOUD_PROJECT into Code Assist often triggers enterprise license 403s.
+    gemini_cli_use_env_gcp_project: bool = False
     include_gemini_cli_collector: bool = False
 
     @property
