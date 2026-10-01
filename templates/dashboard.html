@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Quotas</title>
+  <link rel="stylesheet" href="/static/app.css" />
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+  <header class="top">
+    <h1>AI Quotas <span class="scope">({{ quota_scope }})</span></h1>
+    <div class="meta">
+      <span id="last-refresh">
+        {% if last_refresh %}Last refresh: {{ last_refresh.strftime('%Y-%m-%d %H:%M:%S') }} UTC{% else %}Waiting for first refresh…{% endif %}
+      </span>
+      <button
+        type="button"
+        hx-post="/api/refresh"
+        hx-swap="none"
+        hx-on::after-request="location.reload()"
+        {% if refreshing %}disabled{% endif %}
+      >Refresh now</button>
+    </div>
+  </header>
+
+  <div
+    hx-get="/fragments/providers"
+    hx-trigger="every {{ probe_interval_sec }}s"
+    hx-target="#providers"
+    hx-swap="outerHTML"
+  >
+    {% include "partials/providers.html" %}
+  </div>
+
+  <footer class="foot">
+    Scope: <code>{{ quota_scope }}</code> (cli = Codex, Cursor, Claude, Antigravity) · interval {{ probe_interval_sec }}s
+  </footer>
+</body>
+</html>

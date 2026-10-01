@@ -1,0 +1,60 @@
+<div id="providers">
+  {% if not snapshot.providers %}
+  <p class="empty">No data yet. Click Refresh or wait for the background poll.</p>
+  {% endif %}
+
+  {% for p in snapshot.providers %}
+  <section class="card status-{{ p.status.value }}">
+    <div class="card-head">
+      <h2>
+        {%- if p.surface and p.surface.value == 'chatgpt_codex' %}Codex
+        {%- elif p.surface and p.surface.value == 'claude_subscription' %}Claude
+        {%- elif p.surface and p.surface.value == 'antigravity' %}Antigravity
+        {%- elif p.surface and p.surface.value == 'cursor' %}Cursor
+        {%- else %}{{ p.provider }}{% if p.surface %} · {{ p.surface.value }}{% endif %}{% endif -%}
+      </h2>
+      <span class="badge">{{ p.status.value }}</span>
+    </div>
+    {% if p.message %}
+    <p class="message" title="{{ p.message }}">{{ p.message }}</p>
+    {% endif %}
+
+    {% if p.metrics %}
+    <table>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Window</th>
+          <th>Used %</th>
+          <th>Rem %</th>
+          <th>Used</th>
+          <th>Limit</th>
+          <th>Remaining</th>
+          <th>Unit</th>
+          <th>Resets</th>
+          <th>Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in p.metrics %}
+        <tr>
+          <td>{{ m.name }}</td>
+          <td>{{ m.window.value }}</td>
+          <td>{{ m.used_percent | fmt if m.used_percent is not none else '—' }}</td>
+          <td>{{ m.remaining_percent | fmt if m.remaining_percent is not none else '—' }}</td>
+          <td>{{ m.used | fmt }}</td>
+          <td>{{ m.limit | fmt }}</td>
+          <td>{{ m.remaining | fmt }}</td>
+          <td>{{ m.unit or '—' }}</td>
+          <td>{{ m.resets_at or '—' }}</td>
+          <td>{{ m.source.value }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="no-metrics">No metrics</p>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>

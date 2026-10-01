@@ -1,0 +1,33 @@
+# Environment variables and credentials
+.env
+.env.local
+.env.*.local
+.env.txt
+*.pem
+*.key
+
+# Python
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Testing and caches
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Editor and IDE
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

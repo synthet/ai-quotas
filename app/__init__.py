@@ -1,0 +1,1 @@
+"""AI Quotas Dashboard application."""
