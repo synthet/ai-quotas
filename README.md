@@ -11,7 +11,7 @@ Docs:
 
 | Value | Providers polled |
 |-------|------------------|
-| **`cli`** (default) | **Codex**, **Cursor**, **Claude Code** (`/usage`), **Antigravity** (`agy /usage`) — no API probes |
+| **`cli`** (default) | **Claude**, **Codex**, **Cursor**, **Antigravity** — no API probes |
 | `api` | OpenAI, Anthropic, Gemini API (inference probes + headers) |
 | `all` | Every adapter |
 

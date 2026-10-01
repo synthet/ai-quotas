@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     google_api_key: str = ""
 
-    # cli = Codex, Cursor, Claude, Antigravity (default; no API probes)
+    # cli = Claude, Codex, Cursor, Antigravity (default; no API probes)
     # api = OpenAI + Anthropic + Gemini API only
     # all = API adapters + four CLI adapters (optional legacy Gemini CLI via flag)
     quota_scope: QuotaScope = "cli"

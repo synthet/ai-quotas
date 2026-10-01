@@ -7,7 +7,7 @@ import httpx
 from app.config import Settings
 from app.http import create_client
 from app.models.quota import DashboardSnapshot, ProviderSnapshot, ProviderStatus
-from app.providers import adapters_for_settings
+from app.providers import adapters_for_settings, sort_provider_snapshots
 
 
 async def refresh_snapshot(settings: Settings) -> DashboardSnapshot:
@@ -32,4 +32,5 @@ async def refresh_snapshot(settings: Settings) -> DashboardSnapshot:
         else:
             providers.append(result)
 
+    providers = sort_provider_snapshots(providers)
     return DashboardSnapshot(fetched_at=fetched_at, providers=providers)
