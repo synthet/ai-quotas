@@ -120,7 +120,7 @@ def _parse_bridge_file(path: Path) -> list[QuotaMetric]:
     return metrics
 
 
-async def _run_claude_usage(claude_exe: str, timeout_sec: float) -> str | None:
+async def _run_claude_usage(claude_exe: str, timeout_sec: float) -> tuple[str | None, str]:
     proc = await asyncio.create_subprocess_exec(
         claude_exe,
         "-p",
@@ -131,17 +131,23 @@ async def _run_claude_usage(claude_exe: str, timeout_sec: float) -> str | None:
         stderr=asyncio.subprocess.PIPE,
     )
     try:
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout_sec)
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_sec)
     except asyncio.TimeoutError:
         proc.kill()
-        return None
+        return None, "timed out"
+    err = (stderr or b"").decode("utf-8", errors="replace").strip()[:300]
     if proc.returncode != 0 or not stdout:
-        return None
+        return None, err or f"exit {proc.returncode}"
     try:
         payload = json.loads(stdout.decode("utf-8", errors="replace"))
     except json.JSONDecodeError:
-        return None
-    return payload.get("result") if isinstance(payload, dict) else None
+        return None, err or "invalid JSON"
+    if not isinstance(payload, dict):
+        return None, err or "unexpected payload"
+    result = payload.get("result")
+    if not isinstance(result, str) or not result.strip():
+        return None, err or "empty result"
+    return result, ""
 
 
 class ClaudeSubscriptionAdapter(ProviderAdapter):
@@ -173,13 +179,14 @@ class ClaudeSubscriptionAdapter(ProviderAdapter):
                 fetched_at=now,
             )
 
-        text = await _run_claude_usage(claude_exe, settings.claude_usage_timeout_sec)
+        text, err = await _run_claude_usage(claude_exe, settings.claude_usage_timeout_sec)
         if not text:
+            hint = f" ({err})" if err else ""
             return ProviderSnapshot(
                 provider="anthropic",
                 surface=QuotaSurface.CLAUDE_SUBSCRIPTION,
                 status=ProviderStatus.ERROR,
-                message="`claude -p /usage` failed or timed out",
+                message=f"`claude -p /usage` failed or timed out{hint}",
                 fetched_at=now,
             )
 

@@ -31,3 +31,6 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Docker runtime on the host (Cursor session file and bridge logs)
+.docker/

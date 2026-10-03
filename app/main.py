@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -70,6 +70,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI Quotas Dashboard", version=APP_VERSION, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(ROOT / "static")), name="static")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse(ROOT / "assets" / "ai-quotas.ico", media_type="image/x-icon")
 
 
 def _snapshot_or_empty() -> DashboardSnapshot:

@@ -41,6 +41,11 @@ def read_rate_limits(timeout_sec: float = 20.0) -> dict[str, Any]:
     while time.time() < deadline:
         line = proc.stdout.readline()
         if not line:
+            if proc.poll() is not None:
+                err = ""
+                if proc.stderr is not None:
+                    err = (proc.stderr.read() or "").strip()[:300]
+                raise RuntimeError(err or "codex app-server exited")
             time.sleep(0.05)
             continue
         line = line.strip()

@@ -105,7 +105,7 @@ class CursorAdapter(ProviderAdapter):
         if settings.cursor_auth_path:
             path = Path(settings.cursor_auth_path)
             if path.is_file():
-                return self._read_token_file(path), str(path)
+                return self._read_token_file(path), "Cursor IDE session"
 
         agent_path = Path.home() / ".config" / "cursor" / "auth.json"
         token = self._read_token_file(agent_path)

@@ -1,0 +1,32 @@
+name: ai-quotas
+
+services:
+  web:
+    build: .
+    image: ai-quotas:local
+    container_name: ai-quotas
+    init: true
+    ports:
+      - "127.0.0.1:8787:8787"
+    env_file:
+      - .env
+    environment:
+      CURSOR_AUTH_PATH: /run/host/cursor-auth.json
+      HOST_CLI_BRIDGE_HOST: host.docker.internal
+      HOST_CLI_BRIDGE_HTTP_PORT: "18788"
+      HOST_CLI_BRIDGE_CODEX_PORT: "18789"
+    volumes:
+      - ./.env:/app/.env:ro
+      - ./.docker:/run/host:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/api/health', timeout=3)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 18
+      start_period: 8s

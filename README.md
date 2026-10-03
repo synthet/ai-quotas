@@ -30,17 +30,18 @@ API scope (`api` / `all`) adds OpenAI, Anthropic, and Gemini API probe adapters.
 
 ## Setup
 
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/), then start the dashboard from the **AI Quotas** desktop shortcut, or:
+
 ```powershell
 cd D:\Projects\ai-quotas
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
 copy .env.example .env
 # Edit .env with your API keys
-uvicorn app.main:app --host 127.0.0.1 --port 8787
+.\run.cmd
 ```
 
-Open http://127.0.0.1:8787
+`run.cmd` builds the local image, starts the container on http://127.0.0.1:8787, and opens that page. Leave the window open. Closing it stops the container.
+
+The site runs in Docker. Claude, Codex, and Antigravity are still the Windows CLIs on this PC; `scripts/host_cli_bridge.py` lets the container call them. Cursor is read from the signed-in IDE session on the host.
 
 ## Configuration
 
@@ -65,7 +66,7 @@ Each API probe uses a small completion (~16 tokens) to read **response headers**
 | **Gemini CLI** (legacy, off by default) | Old OAuth → Cloud Code quota RPC | **Do not use** `gemini auth login` for individuals — Google reports the client is unsupported; use Antigravity instead. |
 | **Cursor** | Reads IDE token from `state.vscdb` → `GET /api/usage-summary` | Stay logged into Cursor; no API key. Shows plan % and included units. |
 
-After changing `.env` or code, restart uvicorn and click **Refresh now**. If “Last refresh” is old, the page may show stale errors (e.g. old model names).
+After changing `.env` or code, close the AI Quotas window and start it again, then click **Refresh now**. The shortcut rebuilds the image, so code changes are picked up on the next start. If “Last refresh” is old, the page may show stale errors (e.g. old model names).
 
 ```powershell
 # Quick check without the browser
