@@ -147,13 +147,15 @@
               {{ m.window.value }}{% if m.remaining_percent is not none %} · {{ m.remaining_percent | fmt }}% left{% endif %}{% if m.resets_at %} · resets {{ m.resets_at }}{% endif %}
             </span>
           </div>
-          {% if m.used_percent is not none %}
-          {% set pct = m.used_percent %}
+          {% if m.used_percent is not none or m.remaining_percent is not none %}
+          {% set left = m.remaining_percent if m.remaining_percent is not none else (100 - m.used_percent) %}
+          {% set left_w = 0 if left < 0 else (100 if left > 100 else left) %}
+          {% set tone = 'is-empty' if left <= 0 else ('is-danger' if left < 20 else ('is-warning' if left < 50 else 'is-ok')) %}
           <div class="progress">
-            <div class="progress-track" aria-hidden="true">
-              <div class="progress-fill" style="width: {{ pct if pct < 100 else 100 }}%"></div>
+            <div class="progress-track {{ 'is-empty' if left <= 0 else '' }}" aria-hidden="true">
+              <div class="progress-fill {{ tone }}" style="width: {{ left_w }}%"></div>
             </div>
-            <span class="progress-label">{{ (pct | round(0)) | int }}%</span>
+            <span class="progress-label {{ tone }}">{{ (left | round(0)) | int }}%</span>
           </div>
           {% elif m.used is not none or m.limit is not none %}
           <div class="metric-figures">{{ m.used | fmt }} / {{ m.limit | fmt }} {{ m.unit }}</div>

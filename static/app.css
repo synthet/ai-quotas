@@ -397,11 +397,18 @@ body {
   background: var(--color-bg-elevated);
 }
 
+.progress-track.is-empty {
+  box-shadow: inset 0 0 0 1px var(--color-danger);
+}
+
 .progress-fill {
   height: 100%;
   border-radius: 999px;
   background: var(--color-accent-bright);
 }
+
+.progress-fill.is-warning { background: var(--color-warning); }
+.progress-fill.is-danger { background: var(--color-danger); }
 
 .progress-label {
   flex: 0 0 auto;
@@ -411,6 +418,10 @@ body {
   color: var(--color-text-secondary);
   white-space: nowrap;
 }
+
+.progress-label.is-warning { color: var(--color-warning); }
+.progress-label.is-danger,
+.progress-label.is-empty { color: var(--color-danger); }
 
 .run-foot {
   font-size: 12px;
