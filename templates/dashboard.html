@@ -5,37 +5,51 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AI Quotas</title>
   <link rel="icon" href="/favicon.ico" type="image/x-icon" />
-  <link rel="stylesheet" href="/static/app.css" />
+  <link rel="stylesheet" href="/static/tokens.css?v=4" />
+  <link rel="stylesheet" href="/static/app.css?v=4" />
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 <body>
-  <header class="top">
-    <h1>AI Quotas <span class="scope">({{ quota_scope }})</span></h1>
-    <div class="meta">
-      <span id="last-refresh">
-        {% if last_refresh %}Last refresh: {{ last_refresh.strftime('%Y-%m-%d %H:%M:%S') }} UTC{% else %}Waiting for first refresh…{% endif %}
+  <header class="shell">
+    <div class="brand">
+      <svg class="brand-mark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
+      </svg>
+      <span class="brand-name">AI Quotas</span>
+    </div>
+    <nav>
+      <span class="nav-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect width="7" height="9" x="3" y="3" rx="1"/>
+          <rect width="7" height="5" x="14" y="3" rx="1"/>
+          <rect width="7" height="9" x="14" y="12" rx="1"/>
+          <rect width="7" height="5" x="3" y="16" rx="1"/>
+        </svg>
+        Providers
       </span>
-      <button
-        type="button"
-        hx-post="/api/refresh"
-        hx-swap="none"
-        hx-on::after-request="location.reload()"
-        {% if refreshing %}disabled{% endif %}
-      >Refresh now</button>
+    </nav>
+    <div class="shell-right">
+      <span class="live" title="Background poll every {{ probe_interval_sec }}s">
+        <span class="live-dot" aria-hidden="true"></span>
+        Live
+      </span>
     </div>
   </header>
 
-  <div
-    hx-get="/fragments/providers"
-    hx-trigger="every {{ probe_interval_sec }}s"
-    hx-target="#providers"
-    hx-swap="outerHTML"
-  >
-    {% include "partials/providers.html" %}
-  </div>
-
-  <footer class="foot">
-    Scope: <code>{{ quota_scope }}</code> (cli = Claude, Codex, Cursor, Antigravity) · interval {{ probe_interval_sec }}s
-  </footer>
+  {% include "partials/providers.html" %}
+  <script>
+    document.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-filter]");
+      if (!button) return;
+      var filter = button.getAttribute("data-filter");
+      document.querySelectorAll("[data-filter]").forEach(function (tab) {
+        tab.classList.toggle("is-active", tab === button);
+      });
+      document.querySelectorAll(".run-card").forEach(function (card) {
+        var attention = card.getAttribute("data-attention") === "1";
+        card.hidden = filter === "attention" && !attention;
+      });
+    });
+  </script>
 </body>
 </html>
