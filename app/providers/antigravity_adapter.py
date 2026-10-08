@@ -1,5 +1,4 @@
 import json
-import shutil
 import subprocess
 from datetime import datetime
 
@@ -15,6 +14,7 @@ from app.models.quota import (
     QuotaSurface,
 )
 from app.providers.base import ProviderAdapter
+from app.util.local_cli import resolve_cli, subprocess_kwargs
 
 
 def _window_from_id(window: str) -> MetricWindow:
@@ -31,7 +31,7 @@ class AntigravityAdapter(ProviderAdapter):
 
     async def fetch(self, client: httpx.AsyncClient, settings: Settings) -> ProviderSnapshot:
         now = datetime.utcnow()
-        exe = settings.antigravity_command or shutil.which("agy")
+        exe = settings.antigravity_command or resolve_cli("agy")
         if not exe:
             return ProviderSnapshot(
                 provider="google",
@@ -48,6 +48,8 @@ class AntigravityAdapter(ProviderAdapter):
                 text=True,
                 timeout=120,
                 check=False,
+                stdin=subprocess.DEVNULL,
+                **subprocess_kwargs(),
             )
         except subprocess.TimeoutExpired:
             return ProviderSnapshot(

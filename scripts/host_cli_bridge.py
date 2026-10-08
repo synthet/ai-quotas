@@ -26,9 +26,13 @@ BIND_HOST = os.environ.get(
     "0.0.0.0" if os.name == "nt" else "127.0.0.1",
 )
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from app.util.local_cli import resolve_cli, subprocess_kwargs  # noqa: E402
+
 CURSOR_AUTH = ROOT / ".docker" / "cursor-auth.json"
 EXEC_TIMEOUT_SEC = 115
-_CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 
 # Keep these in sync with the adapter command lines.
 ALLOWED: dict[str, list[list[str]]] = {
@@ -43,36 +47,6 @@ def log(message: str) -> None:
     print(message, file=sys.stderr, flush=True)
 
 
-def _popen_kwargs() -> dict:
-    if os.name == "nt":
-        return {"creationflags": _CREATE_NO_WINDOW}
-    return {}
-
-
-def _latest_codex() -> Path | None:
-    root = Path(os.environ.get("LOCALAPPDATA", "")) / "OpenAI" / "Codex" / "bin"
-    if not root.is_dir():
-        return None
-    found = [path for path in root.glob("*/codex.exe") if path.is_file()]
-    if not found:
-        return None
-    return max(found, key=lambda path: path.stat().st_mtime)
-
-
-def resolve_bin(name: str) -> Path | None:
-    local = Path(os.environ.get("LOCALAPPDATA", ""))
-    home = Path.home()
-    if name == "claude":
-        candidate = home / ".local" / "bin" / "claude.exe"
-        return candidate if candidate.is_file() else None
-    if name == "agy":
-        candidate = local / "agy" / "bin" / "agy.exe"
-        return candidate if candidate.is_file() else None
-    if name == "codex":
-        return _latest_codex()
-    return None
-
-
 def _clip(text: str, limit: int = 200_000) -> str:
     if len(text) <= limit:
         return text
@@ -83,7 +57,7 @@ def run_allowed(bin_name: str, args: list[str]) -> tuple[int, str, str]:
     allowed = ALLOWED.get(bin_name)
     if allowed is None or args not in allowed:
         return 127, "", "command not allowed\n"
-    exe = resolve_bin(bin_name)
+    exe = resolve_cli(bin_name)
     if exe is None:
         return 127, "", f"{bin_name} was not found on the Windows host\n"
     try:
@@ -95,7 +69,7 @@ def run_allowed(bin_name: str, args: list[str]) -> tuple[int, str, str]:
             encoding="utf-8",
             errors="replace",
             stdin=subprocess.DEVNULL,
-            **_popen_kwargs(),
+            **subprocess_kwargs(),
         )
     except subprocess.TimeoutExpired as exc:
         stdout = exc.stdout or ""
@@ -224,7 +198,7 @@ class CodexHandler(socketserver.BaseRequestHandler):
             return
         proc: subprocess.Popen | None = None
         try:
-            exe = resolve_bin("codex")
+            exe = resolve_cli("codex")
             if exe is None:
                 log("codex.exe was not found on the Windows host")
                 return
@@ -235,7 +209,7 @@ class CodexHandler(socketserver.BaseRequestHandler):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 bufsize=0,
-                **_popen_kwargs(),
+                **subprocess_kwargs(),
             )
             assert proc.stdin and proc.stdout and proc.stderr
 

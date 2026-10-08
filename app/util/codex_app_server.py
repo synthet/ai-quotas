@@ -1,23 +1,30 @@
 import json
-import shutil
+import os
 import subprocess
 import time
 from typing import Any
 
+from app.util.local_cli import resolve_cli, subprocess_kwargs
+
 
 def read_rate_limits(timeout_sec: float = 20.0) -> dict[str, Any]:
     """Call codex app-server account/rateLimits/read (official local CLI)."""
-    exe = shutil.which("codex") or shutil.which("codex.cmd")
+    exe = resolve_cli("codex")
     if not exe:
-        raise FileNotFoundError("codex CLI not found on PATH")
+        raise FileNotFoundError("codex CLI not found")
+
+    command = [exe, "app-server", "--stdio"]
+    if os.name == "nt":
+        command = [exe, "--no-daemon", "app-server", "--stdio"]
 
     proc = subprocess.Popen(
-        [exe, "app-server", "--stdio"],
+        command,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
         bufsize=1,
+        **subprocess_kwargs(),
     )
     assert proc.stdin and proc.stdout
 

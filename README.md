@@ -30,18 +30,17 @@ API scope (`api` / `all`) adds OpenAI, Anthropic, and Gemini API probe adapters.
 
 ## Setup
 
-Install [Docker Desktop](https://www.docker.com/products/docker-desktop/), then start the dashboard from the **AI Quotas** desktop shortcut, or:
+Python 3.11 or newer, plus the signed-in CLIs on this PC. Start the dashboard from the **AI Quotas** desktop shortcut, or:
 
 ```powershell
 cd D:\Projects\ai-quotas
 copy .env.example .env
-# Edit .env with your API keys
 .\run.cmd
 ```
 
-`run.cmd` builds the local image, starts the container on http://127.0.0.1:8787, and opens that page. Leave the window open. Closing it stops the container.
+`run.cmd` starts the dashboard on this PC at http://127.0.0.1:8787 and opens that page. Leave the window open. Closing it stops the dashboard.
 
-The site runs in Docker. Claude, Codex, and Antigravity are still the Windows CLIs on this PC; `scripts/host_cli_bridge.py` lets the container call them. Cursor is read from the signed-in IDE session on the host.
+Claude, Codex, and Antigravity are those installed CLIs. Cursor is read from the signed-in IDE session. API keys in `.env` are used only when `QUOTA_SCOPE` is `api` or `all`.
 
 ## Configuration
 
@@ -66,7 +65,7 @@ Each API probe uses a small completion (~16 tokens) to read **response headers**
 | **Gemini CLI** (legacy, off by default) | Old OAuth → Cloud Code quota RPC | **Do not use** `gemini auth login` for individuals — Google reports the client is unsupported; use Antigravity instead. |
 | **Cursor** | Reads IDE token from `state.vscdb` → `GET /api/usage-summary` | Stay logged into Cursor; no API key. Shows plan % and included units. |
 
-After changing `.env` or code, close the AI Quotas window and start it again, then click **Refresh now**. The shortcut rebuilds the image, so code changes are picked up on the next start. If “Last refresh” is old, the page may show stale errors (e.g. old model names).
+After changing `.env` or code, close the AI Quotas window and start it again, then click **Refresh**. If “Updated” is old, the page may show stale errors.
 
 ```powershell
 # Quick check without the browser

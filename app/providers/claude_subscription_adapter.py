@@ -1,7 +1,6 @@
 import asyncio
 import json
 import re
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,6 +16,7 @@ from app.models.quota import (
     QuotaSurface,
 )
 from app.providers.base import ProviderAdapter
+from app.util.local_cli import resolve_cli, subprocess_kwargs
 
 _SESSION_RE = re.compile(
     r"Current session:\s*(\d+(?:\.\d+)?)\s*%\s*used",
@@ -127,8 +127,10 @@ async def _run_claude_usage(claude_exe: str, timeout_sec: float) -> tuple[str | 
         "/usage",
         "--output-format",
         "json",
+        stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        **subprocess_kwargs(),
     )
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_sec)
@@ -169,7 +171,7 @@ class ClaudeSubscriptionAdapter(ProviderAdapter):
                     metrics=metrics,
                 )
 
-        claude_exe = settings.claude_command or shutil.which("claude")
+        claude_exe = settings.claude_command or resolve_cli("claude")
         if not claude_exe:
             return ProviderSnapshot(
                 provider="anthropic",
