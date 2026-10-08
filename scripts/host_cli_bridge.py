@@ -20,6 +20,11 @@ from pathlib import Path
 
 HTTP_PORT = int(os.environ.get("HOST_CLI_BRIDGE_HTTP_PORT", "18788"))
 CODEX_PORT = int(os.environ.get("HOST_CLI_BRIDGE_CODEX_PORT", "18789"))
+# Docker Desktop reaches the host via its gateway IP, not 127.0.0.1.
+BIND_HOST = os.environ.get(
+    "HOST_CLI_BRIDGE_BIND",
+    "0.0.0.0" if os.name == "nt" else "127.0.0.1",
+)
 ROOT = Path(__file__).resolve().parent.parent
 CURSOR_AUTH = ROOT / ".docker" / "cursor-auth.json"
 EXEC_TIMEOUT_SEC = 115
@@ -319,12 +324,12 @@ def main() -> None:
             CURSOR_AUTH.write_text("{}\n", encoding="utf-8")
 
     try:
-        codex_server = CodexServer(("127.0.0.1", CODEX_PORT), CodexHandler)
+        codex_server = CodexServer((BIND_HOST, CODEX_PORT), CodexHandler)
     except OSError as exc:
         log(f"failed to bind codex port {CODEX_PORT}: {exc}")
         sys.exit(1)
     try:
-        httpd = BridgeHTTPServer(("127.0.0.1", HTTP_PORT), ExecHandler)
+        httpd = BridgeHTTPServer((BIND_HOST, HTTP_PORT), ExecHandler)
     except OSError as exc:
         log(f"failed to bind http port {HTTP_PORT}: {exc}")
         codex_server.server_close()
@@ -333,7 +338,7 @@ def main() -> None:
     stop = threading.Event()
     threading.Thread(target=_cursor_loop, args=(stop,), daemon=True).start()
     threading.Thread(target=codex_server.serve_forever, daemon=True).start()
-    log(f"bridge listening on 127.0.0.1:{HTTP_PORT} and 127.0.0.1:{CODEX_PORT}")
+    log(f"bridge listening on {BIND_HOST}:{HTTP_PORT} and {BIND_HOST}:{CODEX_PORT}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

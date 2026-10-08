@@ -19,10 +19,27 @@ HTTP_PORT = os.environ.get("HOST_CLI_BRIDGE_HTTP_PORT", "8788")
 CODEX_PORT = int(os.environ.get("HOST_CLI_BRIDGE_CODEX_PORT", "8789"))
 
 
+def bridge_host() -> str:
+    """Use IPv4 only; Docker Desktop may list unreachable IPv6 first."""
+    try:
+        infos = socket.getaddrinfo(
+            HOST,
+            int(HTTP_PORT),
+            family=socket.AF_INET,
+            type=socket.SOCK_STREAM,
+        )
+        if infos:
+            return infos[0][4][0]
+    except OSError:
+        pass
+    return HOST
+
+
 def proxy_exec() -> int:
     body = json.dumps({"bin": NAME, "args": sys.argv[1:]}).encode()
+    target = bridge_host()
     req = urllib.request.Request(
-        f"http://{HOST}:{HTTP_PORT}/v1/exec",
+        f"http://{target}:{HTTP_PORT}/v1/exec",
         data=body,
         headers={"Content-Type": "application/json"},
         method="POST",
@@ -49,7 +66,7 @@ def proxy_codex() -> int:
         return 2
 
     try:
-        sock = socket.create_connection((HOST, CODEX_PORT), timeout=30)
+        sock = socket.create_connection((bridge_host(), CODEX_PORT), timeout=30)
     except OSError as exc:
         sys.stderr.write(f"codex bridge unavailable: {exc}\n")
         return 1
