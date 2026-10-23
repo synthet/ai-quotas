@@ -34,3 +34,10 @@ Thumbs.db
 
 # Docker runtime on the host (Cursor session file and bridge logs)
 .docker/
+/docs/_local/
+/.agent/local/
+/.cursor/mcp.json
+/.claude/settings.local.json
+/.agents/mcp_config.json
+
+/*-session-*.md

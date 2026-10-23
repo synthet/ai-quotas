@@ -19,7 +19,7 @@ from app.providers.base import ProviderAdapter
 from app.util.local_cli import resolve_cli, subprocess_kwargs
 
 _SESSION_RE = re.compile(
-    r"Current session:\s*(\d+(?:\.\d+)?)\s*%\s*used",
+    r"Current session:\s*(\d+(?:\.\d+)?)\s*%\s*used(?:\s*·\s*resets\s+(.+?))?(?:\n|$)",
     re.IGNORECASE,
 )
 _WEEK_RE = re.compile(
@@ -40,11 +40,13 @@ def _metric_from_used_percent(
     window: MetricWindow,
     resets_at: str | None,
     source: MetricSource,
+    window_label: str | None = None,
 ) -> QuotaMetric:
     return QuotaMetric(
         name=name,
         surface=QuotaSurface.CLAUDE_SUBSCRIPTION,
         window=window,
+        window_label=window_label,
         used_percent=used_pct,
         remaining_percent=max(0.0, 100.0 - used_pct),
         unit="percent",
@@ -57,13 +59,15 @@ def _parse_usage_text(text: str) -> list[QuotaMetric]:
     metrics: list[QuotaMetric] = []
     session = _SESSION_RE.search(text)
     if session:
+        session_reset = (session.group(2) or "").strip() or None
         metrics.append(
             _metric_from_used_percent(
                 "session",
                 float(session.group(1)),
                 MetricWindow.FIVE_H,
-                None,
+                session_reset,
                 MetricSource.OFFICIAL_LOCAL_CLI,
+                "5-hour session",
             )
         )
     for match in _WEEK_RE.finditer(text):
@@ -77,6 +81,7 @@ def _parse_usage_text(text: str) -> list[QuotaMetric]:
                 MetricWindow.WEEKLY,
                 reset_hint,
                 MetricSource.OFFICIAL_LOCAL_CLI,
+                f"Weekly ({label})",
             )
         )
     return metrics
@@ -92,10 +97,10 @@ def _parse_bridge_file(path: Path) -> list[QuotaMetric]:
     limits = data.get("rate_limits") or data
     if isinstance(limits, dict):
         mapping = (
-            ("five_hour", "five_hour", MetricWindow.FIVE_H),
-            ("seven_day", "seven_day", MetricWindow.WEEKLY),
+            ("five_hour", "five_hour", MetricWindow.FIVE_H, "5-hour session"),
+            ("seven_day", "seven_day", MetricWindow.WEEKLY, "Weekly pool"),
         )
-        for key, name, window in mapping:
+        for key, name, window, label in mapping:
             block = limits.get(key)
             if not isinstance(block, dict):
                 continue
@@ -115,9 +120,20 @@ def _parse_bridge_file(path: Path) -> list[QuotaMetric]:
                     window,
                     resets_at,
                     MetricSource.OFFICIAL_LOCAL_CLI,
+                    label,
                 )
             )
     return metrics
+
+
+def _evaluate_status(metrics: list[QuotaMetric]) -> ProviderStatus:
+    if not metrics:
+        return ProviderStatus.DEGRADED
+    if any(m.remaining_percent is not None and m.remaining_percent <= 0 for m in metrics):
+        return ProviderStatus.BLOCKED
+    if any(m.remaining_percent is not None and m.remaining_percent < 15 for m in metrics):
+        return ProviderStatus.DEGRADED
+    return ProviderStatus.OK
 
 
 async def _run_claude_usage(claude_exe: str, timeout_sec: float) -> tuple[str | None, str]:
@@ -165,7 +181,7 @@ class ClaudeSubscriptionAdapter(ProviderAdapter):
                 return ProviderSnapshot(
                     provider="anthropic",
                     surface=QuotaSurface.CLAUDE_SUBSCRIPTION,
-                    status=ProviderStatus.OK,
+                    status=_evaluate_status(metrics),
                     message=f"Claude subscription (cached {name})",
                     fetched_at=now,
                     metrics=metrics,
@@ -196,7 +212,7 @@ class ClaudeSubscriptionAdapter(ProviderAdapter):
         return ProviderSnapshot(
             provider="anthropic",
             surface=QuotaSurface.CLAUDE_SUBSCRIPTION,
-            status=ProviderStatus.OK if metrics else ProviderStatus.DEGRADED,
+            status=_evaluate_status(metrics),
             message="Claude Code subscription (`/usage`, no API tokens)",
             fetched_at=now,
             metrics=metrics,

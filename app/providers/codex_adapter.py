@@ -97,10 +97,15 @@ class CodexSubscriptionAdapter(ProviderAdapter):
 
         plan = limits.get("planType")
         msg = f"ChatGPT/Codex plan: {plan}" if plan else "ChatGPT/Codex subscription limits"
+        status = ProviderStatus.OK if metrics else ProviderStatus.DEGRADED
+        if any(m.remaining_percent is not None and m.remaining_percent <= 0 for m in metrics):
+            status = ProviderStatus.BLOCKED
+        elif any(m.remaining_percent is not None and m.remaining_percent < 15 for m in metrics):
+            status = ProviderStatus.DEGRADED
         return ProviderSnapshot(
             provider="openai",
             surface=QuotaSurface.CHATGPT_CODEX,
-            status=ProviderStatus.OK if metrics else ProviderStatus.DEGRADED,
+            status=status,
             message=msg,
             fetched_at=now,
             metrics=metrics,

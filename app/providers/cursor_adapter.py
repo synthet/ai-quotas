@@ -1,6 +1,7 @@
 import json
 import os
-from datetime import datetime
+import re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -30,11 +31,85 @@ def _float_or_none(val) -> float | None:
         return None
 
 
+def _parse_transcript_error_line(
+    line: str,
+    file_mtime: datetime,
+    now: datetime,
+) -> tuple[datetime, int, str] | None:
+    """Parse 'Weekly usage limit reached. It resets in X days/hours' from a transcript line.
+
+    Returns (resets_at, val, unit) if active (resets_at > now), else None.
+    """
+    if "weekly usage limit reached" not in line.lower():
+        return None
+    m = re.search(
+        r"weekly usage limit reached\.\s*it resets in\s*(\d+)\s*(day|hour|minute)s?",
+        line,
+        re.IGNORECASE,
+    )
+    if not m:
+        return None
+    val = int(m.group(1))
+    unit = m.group(2).lower()
+    delta = (
+        timedelta(days=val)
+        if unit == "day"
+        else (timedelta(hours=val) if unit == "hour" else timedelta(minutes=val))
+    )
+    resets_at = file_mtime + delta
+    if resets_at > now:
+        return resets_at, val, unit
+    return None
+
+
+def _detect_cli_weekly_limit(
+    now: datetime,
+    cursor_dir: Path | None = None,
+) -> tuple[datetime, int, str] | None:
+    """Scan ~/.cursor/projects for recent agent transcripts containing active weekly usage limit errors."""
+    base = cursor_dir or (Path.home() / ".cursor")
+    proj_dir = base / "projects"
+    if not proj_dir.is_dir():
+        return None
+
+    cutoff = now - timedelta(days=7)
+    latest_hit: tuple[datetime, int, str] | None = None
+
+    try:
+        for p_dir in proj_dir.iterdir():
+            trans_dir = p_dir / "agent-transcripts"
+            if not trans_dir.is_dir():
+                continue
+            for sub in trans_dir.iterdir():
+                if not sub.is_dir():
+                    continue
+                for f in sub.glob("*.jsonl"):
+                    try:
+                        st = f.stat()
+                        mtime = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
+                        if mtime < cutoff:
+                            continue
+                        with open(f, "r", encoding="utf-8", errors="ignore") as fp:
+                            lines = fp.readlines()
+                        for line in reversed(lines[-10:]):
+                            hit = _parse_transcript_error_line(line, mtime, now)
+                            if hit:
+                                if latest_hit is None or hit[0] > latest_hit[0]:
+                                    latest_hit = hit
+                                break
+                    except OSError:
+                        continue
+    except OSError:
+        pass
+
+    return latest_hit
+
+
 class CursorAdapter(ProviderAdapter):
     provider_id = "cursor.cursor"
 
     async def fetch(self, client: httpx.AsyncClient, settings: Settings) -> ProviderSnapshot:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         token, source = self._resolve_access_token(settings)
         if not token:
             return ProviderSnapshot(
@@ -92,11 +167,41 @@ class CursorAdapter(ProviderAdapter):
             )
 
         metrics = self._parse_usage_summary(data)
+        weekly_hit = _detect_cli_weekly_limit(now)
+
+        if weekly_hit:
+            resets_at, val, unit = weekly_hit
+            unit_str = f"{val} {unit}{'s' if val != 1 else ''}"
+            resets_at_str = resets_at.isoformat()
+            metrics.insert(
+                0,
+                QuotaMetric(
+                    name="weekly_usage_limit",
+                    surface=QuotaSurface.CURSOR,
+                    window=MetricWindow.WEEKLY,
+                    window_label="Weekly usage limit (CLI)",
+                    used_percent=100.0,
+                    remaining_percent=0.0,
+                    unit="percent",
+                    resets_at=resets_at_str,
+                    source=MetricSource.INFERENCE_ERROR,
+                ),
+            )
+            status = ProviderStatus.BLOCKED
+            message = (
+                f"Weekly usage limit reached (resets in {unit_str}) · Monthly billing usage shown below"
+            )
+        else:
+            status = ProviderStatus.PARTIAL if metrics else ProviderStatus.DEGRADED
+            message = (
+                f"Cursor private dashboard ({source}) — monthly billing only (weekly quota unexposed)"
+            )
+
         return ProviderSnapshot(
             provider="cursor",
             surface=QuotaSurface.CURSOR,
-            status=ProviderStatus.OK if metrics else ProviderStatus.DEGRADED,
-            message=f"Cursor private dashboard ({source})",
+            status=status,
+            message=message,
             fetched_at=now,
             metrics=metrics,
         )
@@ -163,6 +268,7 @@ class CursorAdapter(ProviderAdapter):
                         name=name,
                         surface=QuotaSurface.CURSOR,
                         window=MetricWindow.BILLING_MONTH,
+                        window_label="Monthly billing",
                         used_percent=pct,
                         remaining_percent=max(0.0, 100.0 - pct),
                         unit="percent",
@@ -179,6 +285,7 @@ class CursorAdapter(ProviderAdapter):
                         name="plan_included",
                         surface=QuotaSurface.CURSOR,
                         window=MetricWindow.BILLING_MONTH,
+                        window_label="Monthly billing",
                         used=used,
                         limit=limit,
                         remaining=remaining,
@@ -205,6 +312,7 @@ class CursorAdapter(ProviderAdapter):
                 QuotaMetric(
                     name=name,
                     window=MetricWindow.BILLING_MONTH,
+                    window_label="Monthly billing",
                     used=pct,
                     limit=100.0,
                     remaining=max(0.0, 100.0 - pct),
@@ -221,6 +329,7 @@ class CursorAdapter(ProviderAdapter):
                         QuotaMetric(
                             name=key,
                             window=MetricWindow.BILLING_MONTH,
+                            window_label="Monthly billing",
                             used=float(val),
                             limit=100.0,
                             remaining=max(0.0, 100.0 - float(val)),

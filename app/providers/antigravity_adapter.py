@@ -106,6 +106,7 @@ class AntigravityAdapter(ProviderAdapter):
                         name=f"{group_name}:{bid}",
                         surface=QuotaSurface.ANTIGRAVITY,
                         window=_window_from_id(str(bucket.get("window") or "")),
+                        window_label=bucket.get("name") or group_name,
                         used_percent=used_pct,
                         remaining_percent=remaining_pct,
                         unit="percent",
@@ -114,10 +115,22 @@ class AntigravityAdapter(ProviderAdapter):
                     )
                 )
 
+        status = ProviderStatus.OK if metrics else ProviderStatus.DEGRADED
+        if any(m.remaining_percent is not None and m.remaining_percent <= 0 for m in metrics):
+            main_blocked = any(
+                m.remaining_percent is not None
+                and m.remaining_percent <= 0
+                and "gemini models" in m.name.lower()
+                for m in metrics
+            )
+            status = ProviderStatus.BLOCKED if main_blocked else ProviderStatus.DEGRADED
+        elif any(m.remaining_percent is not None and m.remaining_percent < 15 for m in metrics):
+            status = ProviderStatus.DEGRADED
+
         return ProviderSnapshot(
             provider="google",
             surface=QuotaSurface.ANTIGRAVITY,
-            status=ProviderStatus.OK if metrics else ProviderStatus.DEGRADED,
+            status=status,
             message="Antigravity subscription (agy /usage)",
             fetched_at=now,
             metrics=metrics,
