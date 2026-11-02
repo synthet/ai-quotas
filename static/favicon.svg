@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title description">
+  <title id="title">AI Quotas — 32 px simplification</title>
+  <desc id="description">Gauge ring with a centre dot: quota usage.</desc>
+  <g id="foundation">
+    <rect x="64" y="64" width="896" height="896" rx="184" fill="#101014"/>
+  </g>
+  <g id="glyph" fill="#A9B7C6" fill-rule="evenodd">
+    <path d="M 308.4,715.6 A 288,288 0 1 1 715.6,715.6 L 636.5,636.5 A 176,176 0 1 0 387.5,636.5 Z"/>
+    <path d="M 440,512 A 72,72 0 1 0 584,512 A 72,72 0 1 0 440,512 Z"/>
+  </g>
+</svg>
