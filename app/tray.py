@@ -99,9 +99,13 @@ def _run_tray() -> int:
         server.should_exit = True
         icon.stop()
 
+    # copy() reads the file fully so the handle closes; a held .ico blocks git on Windows.
+    with Image.open(ROOT / "assets" / "ai-quotas.ico") as source:
+        image = source.copy()
+
     icon = pystray.Icon(
         "ai-quotas",
-        Image.open(ROOT / "assets" / "ai-quotas.ico"),
+        image,
         APP_NAME,
         pystray.Menu(
             pystray.MenuItem("Open dashboard", open_dashboard, default=True),
