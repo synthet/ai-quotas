@@ -25,6 +25,7 @@ from app.providers.gemini_cli_quota import (
     retrieve_quota_bodies,
 )
 from app.util.google_oauth import oauth_access_token_expired, resolve_oauth_client_id
+from app.util.local_cli import subprocess_kwargs
 
 LOAD_CODE_ASSIST = "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist"
 RETRIEVE_QUOTA = "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota"
@@ -205,8 +206,10 @@ class GeminiCliAdapter(ProviderAdapter):
                 "-o",
                 "json",
                 "-y",
+                stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                **subprocess_kwargs(),
             )
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout_sec)
         except (asyncio.TimeoutError, OSError):

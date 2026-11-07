@@ -38,7 +38,11 @@ copy .env.example .env
 .\run.cmd
 ```
 
-`run.cmd` starts the dashboard on this PC at http://127.0.0.1:8787 and opens that page. Leave the window open. Closing it stops the dashboard.
+`run.cmd` installs what is missing, restarts the app, and leaves it running in the system tray with no window. The dashboard is served at http://127.0.0.1:8787.
+
+Click the tray icon to open the dashboard. Right-click it and choose **Quit** to stop. Starting the shortcut while the app is running opens the dashboard. Logs are in `%LOCALAPPDATA%\AI Quotasi-quotas.log`.
+
+To make the desktop shortcut start without a console, run `scripts\install-shortcut.ps1` once.
 
 Claude, Codex, and Antigravity are those installed CLIs. Cursor is read from the signed-in IDE session. API keys in `.env` are used only when `QUOTA_SCOPE` is `api` or `all`.
 
@@ -65,7 +69,7 @@ Each API probe uses a small completion (~16 tokens) to read **response headers**
 | **Gemini CLI** (legacy, off by default) | Old OAuth → Cloud Code quota RPC | **Do not use** `gemini auth login` for individuals — Google reports the client is unsupported; use Antigravity instead. |
 | **Cursor** | Reads IDE token from `state.vscdb` → `GET /api/usage-summary` | Stay logged into Cursor; no API key. Shows plan % and included units. |
 
-After changing `.env` or code, close the AI Quotas window and start it again, then click **Refresh**. If “Updated” is old, the page may show stale errors.
+After changing `.env` or code, run `run.cmd` to restart the app, then click **Refresh**. If “Updated” is old, the page may show stale errors.
 
 ```powershell
 # Quick check without the browser

@@ -29,7 +29,7 @@ function Stop-DockerDashboard {
     if (-not $running) {
         return
     }
-    Write-Host "Stopping the Docker dashboard so this window can serve the page."
+    Write-Host "Stopping the Docker dashboard so the tray app can serve the page."
     & docker stop -t 10 ai-quotas 1>$null 2>$null
 }
 
@@ -38,7 +38,7 @@ function Stop-PreviousServer {
     foreach ($listener in $listeners) {
         $procId = ($listener.ToString().Trim() -split "\s+")[-1]
         $owner = Get-CimInstance Win32_Process -Filter "ProcessId = $procId" -ErrorAction SilentlyContinue
-        if ($owner -and $owner.CommandLine -like "*uvicorn app.main:app*") {
+        if ($owner -and ($owner.CommandLine -like "*uvicorn app.main:app*" -or $owner.CommandLine -like "*-m app.tray*")) {
             Write-Host "Stopping the previous dashboard on port 8787."
             & taskkill /PID $procId /T /F 1>$null 2>$null
         }
@@ -46,7 +46,6 @@ function Stop-PreviousServer {
 }
 
 Write-Host "Starting AI Quotas at http://127.0.0.1:8787"
-Write-Host "Leave this window open. Closing it stops the dashboard."
 
 Stop-BridgePid
 Stop-DockerDashboard
@@ -91,7 +90,7 @@ if (-not (Test-Path -LiteralPath $python)) {
     }
 }
 
-& $python -c "import uvicorn, fastapi" 1>$null 2>$null
+& $python -c "import uvicorn, fastapi, pystray, PIL" 1>$null 2>$null
 if ($LASTEXITCODE -ne 0) {
     & $python -m pip install -r requirements.txt
     if ($LASTEXITCODE -ne 0) {
@@ -100,27 +99,9 @@ if ($LASTEXITCODE -ne 0) {
     }
 }
 
-$readyFile = Join-Path $env:TEMP "ai-quotas-windows.ready"
-Remove-Item -LiteralPath $readyFile -ErrorAction SilentlyContinue
+Start-Process -FilePath (Join-Path (Get-Location) ".venv\Scripts\pythonw.exe") `
+    -ArgumentList "-m", "app.tray" `
+    -WorkingDirectory (Get-Location).Path
 
-$opener = Start-Process -FilePath "powershell.exe" `
-    -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts\open-when-ready.ps1", "-ReadyFile", $readyFile `
-    -WindowStyle Hidden `
-    -PassThru
-
-$serverCode = 0
-try {
-    & $python -m uvicorn app.main:app --host 127.0.0.1 --port 8787
-    $serverCode = $LASTEXITCODE
-} finally {
-    if ($opener -and -not $opener.HasExited) {
-        & taskkill /PID $opener.Id /T /F 1>$null 2>$null
-    }
-}
-
-if ((-not (Test-Path -LiteralPath $readyFile)) -and $serverCode -ne 0) {
-    Write-Host "AI Quotas did not become ready (exit $serverCode)."
-    exit 1
-}
-
+Write-Host "AI Quotas is running in the system tray."
 exit 0

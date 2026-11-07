@@ -55,7 +55,7 @@ $listeners = netstat -ano | Select-String "127.0.0.1:8787\s+.*LISTENING"
 foreach ($listener in $listeners) {
     $procId = ($listener.ToString().Trim() -split "\s+")[-1]
     $owner = Get-CimInstance Win32_Process -Filter "ProcessId = $procId" -ErrorAction SilentlyContinue
-    if ($owner -and $owner.CommandLine -like "*uvicorn app.main:app*") {
+    if ($owner -and ($owner.CommandLine -like "*uvicorn app.main:app*" -or $owner.CommandLine -like "*-m app.tray*")) {
         Write-Host "Stopping the previous local dashboard on port 8787."
         & taskkill /PID $procId /T /F 1>$null 2>$null
     }
