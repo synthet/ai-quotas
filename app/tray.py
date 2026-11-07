@@ -19,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 HOST = "127.0.0.1"
-PORT = 8787
+PORT = 8790
 URL = f"http://{HOST}:{PORT}"
 APP_NAME = "AI Quotas"
 

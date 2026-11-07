@@ -22,7 +22,7 @@ function Stop-BridgePid {
     Remove-Item -LiteralPath $pidFile -ErrorAction SilentlyContinue
 }
 
-Write-Host "Starting AI Quotas in Docker at http://127.0.0.1:8787"
+Write-Host "Starting AI Quotas in Docker at http://127.0.0.1:8790"
 Write-Host "Leave this window open. Closing it stops the container."
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
@@ -51,12 +51,12 @@ if (-not (Test-DockerReady)) {
     }
 }
 
-$listeners = netstat -ano | Select-String "127.0.0.1:8787\s+.*LISTENING"
+$listeners = netstat -ano | Select-String "127.0.0.1:8790\s+.*LISTENING"
 foreach ($listener in $listeners) {
     $procId = ($listener.ToString().Trim() -split "\s+")[-1]
     $owner = Get-CimInstance Win32_Process -Filter "ProcessId = $procId" -ErrorAction SilentlyContinue
     if ($owner -and ($owner.CommandLine -like "*uvicorn app.main:app*" -or $owner.CommandLine -like "*-m app.tray*")) {
-        Write-Host "Stopping the previous local dashboard on port 8787."
+        Write-Host "Stopping the previous local dashboard on port 8790."
         & taskkill /PID $procId /T /F 1>$null 2>$null
     }
 }

@@ -9,10 +9,10 @@ $deadline = (Get-Date).AddMinutes(5)
 
 while ((Get-Date) -lt $deadline) {
     try {
-        $response = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:8787/api/health" -TimeoutSec 2
+        $response = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:8790/api/health" -TimeoutSec 2
         if ($response.StatusCode -eq 200) {
             Set-Content -LiteralPath $ReadyFile -Value "ok" -Encoding ascii
-            Start-Process "http://127.0.0.1:8787"
+            Start-Process "http://127.0.0.1:8790"
             exit 0
         }
     } catch {

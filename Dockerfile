@@ -25,6 +25,6 @@ RUN sed -i 's/\r$//' /usr/local/bin/host_cli.py \
 
 USER appuser
 
-EXPOSE 8787
+EXPOSE 8790
 
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8787"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8790"]

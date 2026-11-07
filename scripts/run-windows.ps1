@@ -34,26 +34,26 @@ function Stop-DockerDashboard {
 }
 
 function Stop-PreviousServer {
-    $listeners = netstat -ano | Select-String "127.0.0.1:8787\s+.*LISTENING"
+    $listeners = netstat -ano | Select-String "127.0.0.1:8790\s+.*LISTENING"
     foreach ($listener in $listeners) {
         $procId = ($listener.ToString().Trim() -split "\s+")[-1]
         $owner = Get-CimInstance Win32_Process -Filter "ProcessId = $procId" -ErrorAction SilentlyContinue
         if ($owner -and ($owner.CommandLine -like "*uvicorn app.main:app*" -or $owner.CommandLine -like "*-m app.tray*")) {
-            Write-Host "Stopping the previous dashboard on port 8787."
+            Write-Host "Stopping the previous dashboard on port 8790."
             & taskkill /PID $procId /T /F 1>$null 2>$null
         }
     }
 }
 
-Write-Host "Starting AI Quotas at http://127.0.0.1:8787"
+Write-Host "Starting AI Quotas at http://127.0.0.1:8790"
 
 Stop-BridgePid
 Stop-DockerDashboard
 Stop-PreviousServer
 
-$stillListening = netstat -ano | Select-String "127.0.0.1:8787\s+.*LISTENING"
+$stillListening = netstat -ano | Select-String "127.0.0.1:8790\s+.*LISTENING"
 if ($stillListening) {
-    Write-Host "Port 8787 is already in use."
+    Write-Host "Port 8790 is already in use."
     exit 1
 }
 
