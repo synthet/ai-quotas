@@ -51,14 +51,17 @@ if (-not (Test-DockerReady)) {
     }
 }
 
-$listeners = netstat -ano | Select-String "127.0.0.1:8790\s+.*LISTENING"
-foreach ($listener in $listeners) {
-    $procId = ($listener.ToString().Trim() -split "\s+")[-1]
-    $owner = Get-CimInstance Win32_Process -Filter "ProcessId = $procId" -ErrorAction SilentlyContinue
-    if ($owner -and ($owner.CommandLine -like "*uvicorn app.main:app*" -or $owner.CommandLine -like "*-m app.tray*")) {
-        Write-Host "Stopping the previous local dashboard on port 8790."
-        & taskkill /PID $procId /T /F 1>$null 2>$null
+# Find the local dashboard by process, not by port: netstat can show its listener as CLOSED.
+# /T also ends the Store Python child that the venv launcher starts.
+$venvScripts = Join-Path (Get-Location) ".venv\Scripts\"
+$owners = Get-CimInstance Win32_Process -Filter "Name = 'python.exe' OR Name = 'pythonw.exe'" -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.ExecutablePath -and $_.ExecutablePath.StartsWith($venvScripts, [StringComparison]::OrdinalIgnoreCase) -and
+        ($_.CommandLine -like "*-m app.tray*" -or $_.CommandLine -like "*uvicorn app.main:app*")
     }
+foreach ($owner in $owners) {
+    Write-Host "Stopping the previous local dashboard (PID $($owner.ProcessId))."
+    & taskkill /PID $owner.ProcessId /T /F 1>$null 2>$null
 }
 
 if (-not (Test-Path -LiteralPath ".env")) {

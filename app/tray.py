@@ -27,6 +27,7 @@ _MUTEX_NAME = "Local\\AIQuotasTray"
 _ERROR_ALREADY_EXISTS = 183
 _MB_ICONERROR = 0x10
 _SHUTDOWN_TIMEOUT_SEC = 10
+_DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
 
 log = logging.getLogger("ai_quotas.tray")
 
@@ -56,6 +57,14 @@ def acquire_single_instance(name: str = _MUTEX_NAME) -> int | None:
     if ctypes.get_last_error() == _ERROR_ALREADY_EXISTS:
         return None
     return handle
+
+
+def enable_dpi_awareness() -> None:
+    """Render the tray menu at the monitor's real DPI instead of a blurry stretched bitmap."""
+    # pythonw.exe declares no DPI awareness, so Windows would scale the menu up as a bitmap.
+    user32 = ctypes.windll.user32
+    user32.SetProcessDpiAwarenessContext.argtypes = [ctypes.c_void_p]
+    user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(_DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2))
 
 
 def port_in_use(host: str = HOST, port: int = PORT) -> bool:
@@ -141,6 +150,7 @@ def main() -> int:
     # Settings read .env relative to the working directory.
     os.chdir(ROOT)
     _configure_logging()
+    enable_dpi_awareness()
     try:
         mutex = acquire_single_instance()
         if mutex is None:
