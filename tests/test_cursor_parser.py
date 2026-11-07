@@ -1,6 +1,8 @@
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from app.config import Settings
 from app.models.quota import MetricWindow
 from app.providers.cursor_adapter import (
     CursorAdapter,
@@ -21,6 +23,19 @@ SAMPLE = {
         }
     },
 }
+
+
+def test_windows_appdata_auth_json(tmp_path, monkeypatch):
+    auth = tmp_path / "Cursor" / "auth.json"
+    auth.parent.mkdir()
+    auth.write_text(json.dumps({"accessToken": "tok"}), encoding="utf-8")
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+
+    token, source = CursorAdapter()._resolve_access_token(Settings())
+
+    assert token == "tok"
+    assert source == "Cursor auth.json"
 
 
 def test_parse_usage_summary_individual_plan():

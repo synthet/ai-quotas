@@ -1,4 +1,7 @@
-from app.providers.claude_subscription_adapter import _parse_usage_text
+from app.providers.claude_subscription_adapter import (
+    _empty_usage_message,
+    _parse_usage_text,
+)
 
 SAMPLE = """You are currently using your subscription to power your Claude Code usage
 
@@ -27,3 +30,12 @@ def test_parse_claude_usage_session_with_reset():
     assert session.used_percent == 100.0
     assert session.remaining_percent == 0.0
     assert session.resets_at == "Oct 22, 11pm (America/Chicago)"
+
+
+def test_empty_usage_message_when_oauth_token_missing(tmp_path):
+    (tmp_path / ".credentials.json").write_text(
+        '{"claudeAiOauth":{"accessToken":"","subscriptionType":"pro"}}',
+        encoding="utf-8",
+    )
+    message = _empty_usage_message(tmp_path)
+    assert "not signed in" in message

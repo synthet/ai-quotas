@@ -219,6 +219,11 @@ class CursorAdapter(ProviderAdapter):
 
         appdata = os.environ.get("APPDATA", "")
         if appdata:
+            win_auth = Path(appdata) / "Cursor" / "auth.json"
+            token = self._read_token_file(win_auth)
+            if token:
+                return token, "Cursor auth.json"
+
             vscdb = Path(appdata) / "Cursor" / "User" / "globalStorage" / "state.vscdb"
             token = read_item_table_value(vscdb, "cursorAuth/accessToken")
             if token:

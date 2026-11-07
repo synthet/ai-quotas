@@ -87,6 +87,25 @@ def _parse_usage_text(text: str) -> list[QuotaMetric]:
     return metrics
 
 
+def _oauth_access_token_present(claude_dir: Path) -> bool:
+    path = claude_dir / ".credentials.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    oauth = data.get("claudeAiOauth")
+    if not isinstance(oauth, dict):
+        return False
+    token = oauth.get("accessToken") or oauth.get("access_token")
+    return isinstance(token, str) and bool(token.strip())
+
+
+def _empty_usage_message(claude_dir: Path) -> str:
+    if not _oauth_access_token_present(claude_dir):
+        return "Claude Code is not signed in. Open Claude Code and sign in, then refresh."
+    return "`claude -p /usage` returned no plan limits"
+
+
 def _parse_bridge_file(path: Path) -> list[QuotaMetric]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -209,6 +228,14 @@ class ClaudeSubscriptionAdapter(ProviderAdapter):
             )
 
         metrics = _parse_usage_text(text)
+        if not metrics:
+            return ProviderSnapshot(
+                provider="anthropic",
+                surface=QuotaSurface.CLAUDE_SUBSCRIPTION,
+                status=ProviderStatus.DEGRADED,
+                message=_empty_usage_message(claude_dir),
+                fetched_at=now,
+            )
         return ProviderSnapshot(
             provider="anthropic",
             surface=QuotaSurface.CLAUDE_SUBSCRIPTION,
