@@ -38,7 +38,7 @@ copy .env.example .env
 .\run.cmd
 ```
 
-`run.cmd` installs what is missing, restarts the app, and leaves it running in the system tray with no window. The dashboard is served at http://127.0.0.1:8787.
+`run.cmd` installs what is missing, restarts the app, and leaves it running in the system tray with no window. The dashboard is served at http://127.0.0.1:8790.
 
 Click the tray icon to open the dashboard. Right-click it and choose **Quit** to stop. Starting the shortcut while the app is running opens the dashboard. Logs are in `%LOCALAPPDATA%\AI Quotasi-quotas.log`.
 
@@ -73,7 +73,7 @@ After changing `.env` or code, run `run.cmd` to restart the app, then click **Re
 
 ```powershell
 # Quick check without the browser
-curl http://127.0.0.1:8787/api/snapshot
+curl http://127.0.0.1:8790/api/snapshot
 ```
 
 ## Security
