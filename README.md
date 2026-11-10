@@ -33,7 +33,7 @@ API scope (`api` / `all`) adds OpenAI, Anthropic, and Gemini API probe adapters.
 Python 3.11 or newer, plus the signed-in CLIs on this PC. Start the dashboard from the **AI Quotas** desktop shortcut, or:
 
 ```powershell
-cd D:\Projects\ai-quotas
+cd <projects-root>\ai-quotas
 copy .env.example .env
 .\run.cmd
 ```

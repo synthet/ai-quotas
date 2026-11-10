@@ -18,8 +18,8 @@ A subscription meter such as:
 
 ```text
 Weekly
-9% remaining
-Resets Oct 3 at 12:14
+40% remaining
+Resets Jan 3 at 12:00
 ```
 
 is not the same thing as an API billing error such as:
@@ -125,21 +125,21 @@ A response can contain data similar to:
   "rateLimits": {
     "limitId": "codex",
     "primary": {
-      "usedPercent": 25,
+      "usedPercent": 20,
       "windowDurationMins": 300,
-      "resetsAt": 1779459394
+      "resetsAt": 1893456000
     },
     "secondary": {
-      "usedPercent": 91,
+      "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1779826837
+      "resetsAt": 1893715200
     },
     "credits": {
       "hasCredits": false,
       "unlimited": false,
       "balance": "0"
     },
-    "planType": "plus"
+    "planType": "<plan>"
   }
 }
 ```
@@ -159,16 +159,16 @@ secondary
 Example:
 
 ```text
-usedPercent = 91
-remainingPercent = 9
+usedPercent = 60
+remainingPercent = 40
 ```
 
 becomes:
 
 ```text
 Weekly
-Used:       91%
-Remaining:   9%
+Used:       60%
+Remaining:  40%
 Reset:       ...
 ```
 
@@ -342,8 +342,8 @@ A normalized internal form could look like:
   "provider": "anthropic",
   "surface": "claude_subscription",
   "metric": "weekly",
-  "usedPercent": 18,
-  "remainingPercent": 82,
+  "usedPercent": 25,
+  "remainingPercent": 75,
   "unit": "percent",
   "resetsAt": "..."
 }
@@ -559,10 +559,10 @@ Example:
   "provider": "cursor",
   "surface": "cursor",
   "metric": "composer_auto",
-  "usedPercent": 9.6067,
-  "remainingPercent": 90.3933,
+  "usedPercent": 42.5,
+  "remainingPercent": 57.5,
   "unit": "percent",
-  "resetsAt": "2026-10-24T01:18:31.000Z",
+  "resetsAt": "2030-01-24T00:00:00.000Z",
   "source": "private_dashboard"
 }
 ```
@@ -884,14 +884,14 @@ Recommended layout:
 OpenAI · ChatGPT / Codex                         OK
 
 5 hour
-Used             12%
-Remaining        88%
-Reset            22:14
+Used             30%
+Remaining        70%
+Reset            22:00
 
 Weekly
-Used             91%
-Remaining         9%
-Reset            Oct 3 12:14
+Used             60%
+Remaining        40%
+Reset            Jan 3 12:00
 
 Source           Codex app-server
 ```
@@ -922,8 +922,8 @@ Claude:
 ```text
 Claude · Subscription                           OK
 
-5 hour          31% used
-Weekly          18% used
+5 hour          35% used
+Weekly          25% used
 ```
 
 Anthropic API:
@@ -963,10 +963,10 @@ Cursor:
 Cursor                                           OK
 
 Billing month
-Composer Auto     9.61% used
+Composer Auto    42.50% used
 API Pool          0.00% used
-Total             9.37% used
-Reset             Oct 24
+Total            40.00% used
+Reset             Jan 24
 
 Source
 Cursor private dashboard
@@ -983,35 +983,35 @@ Cursor private dashboard
     "surface": "chatgpt_codex",
     "metric": "five_hour",
     "windowSeconds": 18000,
-    "usedPercent": 12,
-    "remainingPercent": 88,
+    "usedPercent": 30,
+    "remainingPercent": 70,
     "unit": "percent",
-    "resetsAt": "2026-10-01T03:14:00Z",
+    "resetsAt": "2030-01-01T03:00:00Z",
     "source": "official_local_cli",
-    "fetchedAt": "2026-10-01T01:17:37Z"
+    "fetchedAt": "2030-01-01T00:00:00Z"
   },
   {
     "provider": "openai",
     "surface": "chatgpt_codex",
     "metric": "weekly",
     "windowSeconds": 604800,
-    "usedPercent": 91,
-    "remainingPercent": 9,
+    "usedPercent": 60,
+    "remainingPercent": 40,
     "unit": "percent",
-    "resetsAt": "2026-10-03T17:14:00Z",
+    "resetsAt": "2030-01-03T12:00:00Z",
     "source": "official_local_cli",
-    "fetchedAt": "2026-10-01T01:17:37Z"
+    "fetchedAt": "2030-01-01T00:00:00Z"
   },
   {
     "provider": "cursor",
     "surface": "cursor",
     "metric": "composer_auto",
-    "usedPercent": 9.6067,
-    "remainingPercent": 90.3933,
+    "usedPercent": 42.5,
+    "remainingPercent": 57.5,
     "unit": "percent",
-    "resetsAt": "2026-10-24T01:18:31Z",
+    "resetsAt": "2030-01-24T00:00:00Z",
     "source": "private_dashboard",
-    "fetchedAt": "2026-10-01T01:17:37Z"
+    "fetchedAt": "2030-01-01T00:00:00Z"
   }
 ]
 ```
@@ -1129,7 +1129,7 @@ when the actual user-facing ChatGPT quota is:
 
 ```text
 Weekly
-9% remaining
+40% remaining
 ```
 
 The most important implementation improvement is therefore:
