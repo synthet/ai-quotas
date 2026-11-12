@@ -1,4 +1,5 @@
 from app.config import Settings
+from app.providers.ant_credit_adapter import AntCreditAdapter
 from app.providers.antigravity_adapter import AntigravityAdapter
 from app.providers.anthropic_adapter import AnthropicAdapter
 from app.providers.base import ProviderAdapter
@@ -13,9 +14,13 @@ from app.providers.openai_adapter import OpenAIAdapter
 # Dashboard card order (Anthropic → OpenAI → Cursor → Google)
 CLI_CARD_ORDER: tuple[str, ...] = (
     "anthropic.claude_subscription",
+    "anthropic.anthropic_api_credits",
     "openai.chatgpt_codex",
     "cursor.cursor",
     "google.antigravity",
+    "anthropic.anthropic_api",
+    "openai.openai_api",
+    "google.gemini_api",
 )
 
 CLI_ADAPTERS: list[ProviderAdapter] = [
@@ -35,7 +40,11 @@ LEGACY_CLI_ADAPTERS: list[ProviderAdapter] = [
     GeminiCliAdapter(),
 ]
 
-ALL_ADAPTERS: list[ProviderAdapter] = API_ADAPTERS + CLI_ADAPTERS + LEGACY_CLI_ADAPTERS
+CREDIT_ADAPTERS: list[ProviderAdapter] = [
+    AntCreditAdapter(),
+]
+
+ALL_ADAPTERS: list[ProviderAdapter] = API_ADAPTERS + CLI_ADAPTERS + CREDIT_ADAPTERS + LEGACY_CLI_ADAPTERS
 
 
 def sort_provider_snapshots(snapshots: list[ProviderSnapshot]) -> list[ProviderSnapshot]:
@@ -54,13 +63,13 @@ def sort_provider_snapshots(snapshots: list[ProviderSnapshot]) -> list[ProviderS
 def adapters_for_settings(settings: Settings) -> list[ProviderAdapter]:
     scope = settings.quota_scope
     if scope == "cli":
-        adapters = list(CLI_ADAPTERS)
+        adapters = list(CLI_ADAPTERS) + list(CREDIT_ADAPTERS)
         if settings.include_gemini_cli_collector:
             adapters.append(GeminiCliAdapter())
         return adapters
     if scope == "api":
-        return list(API_ADAPTERS)
-    adapters = list(API_ADAPTERS + CLI_ADAPTERS)
+        return list(API_ADAPTERS) + list(CREDIT_ADAPTERS)
+    adapters = list(API_ADAPTERS + CLI_ADAPTERS + CREDIT_ADAPTERS)
     if settings.include_gemini_cli_collector:
         adapters.append(GeminiCliAdapter())
     return adapters

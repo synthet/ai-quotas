@@ -11,8 +11,8 @@ Docs:
 
 | Value | Providers polled |
 |-------|------------------|
-| **`cli`** (default) | **Claude**, **Codex**, **Cursor**, **Antigravity** — no API probes |
-| `api` | OpenAI, Anthropic, Gemini API (inference probes + headers) |
+| **`cli`** (default) | **Claude**, **Codex**, **Cursor**, **Antigravity**, plus a Claude API credit check |
+| `api` | OpenAI, Anthropic, Gemini API (inference probes + headers), plus the credit check |
 | `all` | Every adapter |
 
 ## CLI collectors (default scope)
@@ -23,10 +23,11 @@ Docs:
 | **Cursor** | Local auth → `GET cursor.com/api/usage-summary` |
 | **Claude** (subscription) | `claude -p /usage` or `~/.claude/.cc-statusbar-quota.json` |
 | **Antigravity** | `agy -p /usage --output-format json` |
+| **Claude API credits** | signed-in `ant` — one-token probe (`ANTHROPIC_API_KEY` is unset for that child) |
 
 **Google consumer quota:** use **Antigravity** (`agy`), not Gemini CLI. Google has ended Code Assist sign-in for individuals on `gemini auth login` — migrate per [antigravity.google](https://antigravity.google). The optional `INCLUDE_GEMINI_CLI_COLLECTOR=true` legacy card is only for old OAuth sessions and is not recommended.
 
-API scope (`api` / `all`) adds OpenAI, Anthropic, and Gemini API probe adapters.
+API scope (`api` / `all`) adds OpenAI, Anthropic, and Gemini API probe adapters. The Claude API credit card is present in every scope. It reports whether the signed-in `ant` profile can spend credits. The console dollar balance is not available without an org-admin login.
 
 ## Setup
 

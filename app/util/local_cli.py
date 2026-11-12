@@ -22,7 +22,7 @@ def resolve_cli(
     home: Path | None = None,
     local_app_data: Path | None = None,
 ) -> str | None:
-    """Return the executable for `claude`, `agy`, or `codex`.
+    """Return the executable for `claude`, `agy`, `codex`, or `ant`.
 
     Known install folders win over PATH so a desktop shortcut, which often has
     a short PATH, still reaches the signed-in CLIs.
@@ -53,6 +53,9 @@ def _known_path(name: str, home: Path, local_app_data: Path | None) -> Path | No
         return candidate if candidate.is_file() else None
     if name == "codex":
         return _latest_codex(local_app_data)
+    if name == "ant" and local_app_data is not None:
+        candidate = local_app_data / "Programs" / "ant" / "ant.exe"
+        return candidate if candidate.is_file() else None
     return None
 
 

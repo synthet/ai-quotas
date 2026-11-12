@@ -26,6 +26,17 @@
     'skipped': 'muted',
     'unavailable': 'muted',
   } %}
+  {% set card_names = {
+    'chatgpt_codex': 'Codex',
+    'claude_subscription': 'Claude',
+    'anthropic_api_credits': 'Claude API credits',
+    'anthropic_api': 'Claude API limits',
+    'openai_api': 'OpenAI API',
+    'gemini_api': 'Gemini API',
+    'antigravity': 'Antigravity',
+    'cursor': 'Cursor',
+    'gemini_cli': 'Gemini CLI',
+  } %}
   {% set ns = namespace(attention=0) %}
   {% for p in snapshot.providers %}
     {% if p.status.value != 'ok' %}{% set ns.attention = ns.attention + 1 %}{% endif %}
@@ -55,7 +66,7 @@
       <div class="side-link">{{ quota_scope }}</div>
       <div class="side-label">Providers</div>
       {% for p in snapshot.providers %}
-      {% set pname = 'Codex' if p.surface and p.surface.value == 'chatgpt_codex' else 'Claude' if p.surface and p.surface.value == 'claude_subscription' else 'Antigravity' if p.surface and p.surface.value == 'antigravity' else 'Cursor' if p.surface and p.surface.value == 'cursor' else p.provider %}
+      {% set pname = card_names.get(p.surface.value, p.provider) if p.surface else p.provider %}
       <a class="side-link status-{{ p.status.value }}" href="#provider-{{ loop.index }}">
         <span class="side-dot" aria-hidden="true"></span>
         <span>{{ pname }}</span>
@@ -119,7 +130,7 @@
       {% endif %}
 
       {% for p in snapshot.providers %}
-      {% set pname = 'Codex' if p.surface and p.surface.value == 'chatgpt_codex' else 'Claude' if p.surface and p.surface.value == 'claude_subscription' else 'Antigravity' if p.surface and p.surface.value == 'antigravity' else 'Cursor' if p.surface and p.surface.value == 'cursor' else p.provider %}
+      {% set pname = card_names.get(p.surface.value, p.provider) if p.surface else p.provider %}
       <section
         id="provider-{{ loop.index }}"
         class="run-card status-{{ p.status.value }}"
