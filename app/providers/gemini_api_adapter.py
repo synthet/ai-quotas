@@ -107,16 +107,6 @@ class GeminiApiAdapter(ProviderAdapter):
                     "see AI Studio limits."
                 ),
                 fetched_at=now,
-                metrics=[
-                    QuotaMetric(
-                        name="api_reachable",
-                        window=MetricWindow.UNKNOWN,
-                        remaining=100.0,
-                        limit=100.0,
-                        unit="%",
-                        source=MetricSource.RESPONSE_HEADERS,
-                    )
-                ],
             )
 
         return ProviderSnapshot(
