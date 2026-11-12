@@ -34,11 +34,33 @@ class Settings(BaseSettings):
     antigravity_command: str = ""
     claude_command: str = ""
     claude_usage_timeout_sec: float = 90.0
+    ant_command: str = ""
+    ant_credit_timeout_sec: float = 30.0
     gemini_command: str = ""
     gemini_cli_timeout_sec: float = 45.0
     # Passing GOOGLE_CLOUD_PROJECT into Code Assist often triggers enterprise license 403s.
     gemini_cli_use_env_gcp_project: bool = False
     include_gemini_cli_collector: bool = False
+
+    # Per-card switches. A card is polled when its scope includes it and its switch is on.
+    enable_claude_subscription: bool = True
+    enable_anthropic_api_credits: bool = True
+    enable_chatgpt_codex: bool = True
+    enable_cursor: bool = True
+    enable_antigravity: bool = True
+    enable_anthropic_api: bool = True
+    enable_openai_api: bool = True
+    enable_gemini_api: bool = True
+    enable_gemini_cli: bool = False  # legacy; INCLUDE_GEMINI_CLI_COLLECTOR=true also turns it on
+
+    # Hide cards that returned no data (error, unauthorized, unavailable, skipped).
+    hide_unreachable: bool = True
+
+    def entry_enabled(self, provider_id: str) -> bool:
+        surface = provider_id.rsplit(".", 1)[-1]
+        if surface == "gemini_cli":
+            return self.enable_gemini_cli or self.include_gemini_cli_collector
+        return getattr(self, f"enable_{surface}", True)
 
     @property
     def gemini_dir(self) -> Path:

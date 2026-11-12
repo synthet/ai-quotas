@@ -11,8 +11,8 @@ Docs:
 
 | Value | Providers polled |
 |-------|------------------|
-| **`cli`** (default) | **Claude**, **Codex**, **Cursor**, **Antigravity** — no API probes |
-| `api` | OpenAI, Anthropic, Gemini API (inference probes + headers) |
+| **`cli`** (default) | **Claude**, **Codex**, **Cursor**, **Antigravity**, plus a Claude API credit check |
+| `api` | OpenAI, Anthropic, Gemini API (inference probes + headers), plus the credit check |
 | `all` | Every adapter |
 
 ## CLI collectors (default scope)
@@ -23,10 +23,11 @@ Docs:
 | **Cursor** | Local auth → `GET cursor.com/api/usage-summary` |
 | **Claude** (subscription) | `claude -p /usage` or `~/.claude/.cc-statusbar-quota.json` |
 | **Antigravity** | `agy -p /usage --output-format json` |
+| **Claude API credits** | signed-in `ant` — one-token probe (`ANTHROPIC_API_KEY` is unset for that child) |
 
-**Google consumer quota:** use **Antigravity** (`agy`), not Gemini CLI. Google has ended Code Assist sign-in for individuals on `gemini auth login` — migrate per [antigravity.google](https://antigravity.google). The optional `INCLUDE_GEMINI_CLI_COLLECTOR=true` legacy card is only for old OAuth sessions and is not recommended.
+**Google consumer quota:** use **Antigravity** (`agy`), not Gemini CLI. Google has ended Code Assist sign-in for individuals on `gemini auth login` — migrate per [antigravity.google](https://antigravity.google). The optional `ENABLE_GEMINI_CLI=true` legacy card is only for old OAuth sessions and is not recommended.
 
-API scope (`api` / `all`) adds OpenAI, Anthropic, and Gemini API probe adapters.
+API scope (`api` / `all`) adds OpenAI, Anthropic, and Gemini API probe adapters. The Claude API credit card is present in every scope. It reports whether the signed-in `ant` profile can spend credits. The console dollar balance is not available without an org-admin login.
 
 ## Setup
 
@@ -40,7 +41,7 @@ copy .env.example .env
 
 `run.cmd` installs what is missing, restarts the app, and leaves it running in the system tray with no window. The dashboard is served at http://127.0.0.1:8790.
 
-Click the tray icon to open the dashboard. Right-click it and choose **Quit** to stop. Starting the shortcut while the app is running opens the dashboard. Logs are in `%LOCALAPPDATA%\AI Quotasi-quotas.log`.
+Click the tray icon to open the dashboard. Right-click it and choose **Quit** to stop. Starting the shortcut while the app is running opens the dashboard. Logs are in `%LOCALAPPDATA%\AI Quotas\ai-quotas.log`.
 
 To make the desktop shortcut start without a console, run `scripts\install-shortcut.ps1` once.
 
@@ -48,7 +49,12 @@ Claude, Codex, and Antigravity are those installed CLIs. Cursor is read from the
 
 ## Configuration
 
-See `.env.example`. Probe models (override in `.env`):
+Settings are read from `.env` (git-ignored). [`config.example.env`](config.example.env) lists every setting with its default.
+
+- **Cards:** `QUOTA_SCOPE` picks the set; each card also has its own switch — `ENABLE_CLAUDE_SUBSCRIPTION`, `ENABLE_ANTHROPIC_API_CREDITS`, `ENABLE_CHATGPT_CODEX`, `ENABLE_CURSOR`, `ENABLE_ANTIGRAVITY`, `ENABLE_ANTHROPIC_API`, `ENABLE_OPENAI_API`, `ENABLE_GEMINI_API` (all `true`), `ENABLE_GEMINI_CLI` (`false`). A disabled card is not polled.
+- **Unreachable cards:** `HIDE_UNREACHABLE=true` (default) hides cards that returned no data — error, unauthorized, unavailable or skipped (for example an expired API key or a CLI that is not installed). The header shows how many are hidden; hover for the reasons. `/api/snapshot` still returns every card.
+
+Probe models (override in `.env`):
 
 | Variable | Default |
 |----------|---------|

@@ -20,6 +20,7 @@ class QuotaSurface(str, Enum):
     OPENAI_API = "openai_api"
     CLAUDE_SUBSCRIPTION = "claude_subscription"
     ANTHROPIC_API = "anthropic_api"
+    ANTHROPIC_API_CREDITS = "anthropic_api_credits"
     ANTIGRAVITY = "antigravity"
     GEMINI_API = "gemini_api"
     GEMINI_CLI = "gemini_cli"

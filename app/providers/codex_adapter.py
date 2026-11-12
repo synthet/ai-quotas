@@ -25,6 +25,14 @@ def _window_label(minutes: int | None) -> MetricWindow:
     return MetricWindow.UNKNOWN
 
 
+def _window_text(minutes: int) -> str:
+    if minutes % 1440 == 0:
+        return f"{minutes // 1440}-day"
+    if minutes % 60 == 0:
+        return f"{minutes // 60}-hour"
+    return f"{minutes}-minute"
+
+
 def _metric_from_window(
     name: str,
     window: dict,
@@ -49,7 +57,7 @@ def _metric_from_window(
         name=name,
         surface=QuotaSurface.CHATGPT_CODEX,
         window=_window_label(int(mins) if mins is not None else None),
-        window_label=f"{mins}m" if mins else None,
+        window_label=_window_text(int(mins)) if mins else None,
         used_percent=used,
         remaining_percent=max(0.0, 100.0 - used),
         unit="percent",

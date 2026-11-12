@@ -1,4 +1,5 @@
 from app.config import Settings
+from app.providers.ant_credit_adapter import AntCreditAdapter
 from app.providers.antigravity_adapter import AntigravityAdapter
 from app.providers.anthropic_adapter import AnthropicAdapter
 from app.providers.base import ProviderAdapter
@@ -7,15 +8,19 @@ from app.providers.codex_adapter import CodexSubscriptionAdapter
 from app.providers.cursor_adapter import CursorAdapter
 from app.providers.gemini_api_adapter import GeminiApiAdapter
 from app.providers.gemini_cli_adapter import GeminiCliAdapter
-from app.models.quota import ProviderSnapshot
+from app.models.quota import ProviderSnapshot, ProviderStatus
 from app.providers.openai_adapter import OpenAIAdapter
 
 # Dashboard card order (Anthropic → OpenAI → Cursor → Google)
 CLI_CARD_ORDER: tuple[str, ...] = (
     "anthropic.claude_subscription",
+    "anthropic.anthropic_api_credits",
     "openai.chatgpt_codex",
     "cursor.cursor",
     "google.antigravity",
+    "anthropic.anthropic_api",
+    "openai.openai_api",
+    "google.gemini_api",
 )
 
 CLI_ADAPTERS: list[ProviderAdapter] = [
@@ -35,7 +40,11 @@ LEGACY_CLI_ADAPTERS: list[ProviderAdapter] = [
     GeminiCliAdapter(),
 ]
 
-ALL_ADAPTERS: list[ProviderAdapter] = API_ADAPTERS + CLI_ADAPTERS + LEGACY_CLI_ADAPTERS
+CREDIT_ADAPTERS: list[ProviderAdapter] = [
+    AntCreditAdapter(),
+]
+
+ALL_ADAPTERS: list[ProviderAdapter] = API_ADAPTERS + CLI_ADAPTERS + CREDIT_ADAPTERS + LEGACY_CLI_ADAPTERS
 
 
 def sort_provider_snapshots(snapshots: list[ProviderSnapshot]) -> list[ProviderSnapshot]:
@@ -51,16 +60,33 @@ def sort_provider_snapshots(snapshots: list[ProviderSnapshot]) -> list[ProviderS
     return sorted(snapshots, key=sort_key)
 
 
+UNREACHABLE_STATUSES = frozenset(
+    {
+        ProviderStatus.ERROR,
+        ProviderStatus.UNAUTHORIZED,
+        ProviderStatus.UNAVAILABLE,
+        ProviderStatus.SKIPPED,
+    }
+)
+
+
 def adapters_for_settings(settings: Settings) -> list[ProviderAdapter]:
     scope = settings.quota_scope
     if scope == "cli":
-        adapters = list(CLI_ADAPTERS)
-        if settings.include_gemini_cli_collector:
-            adapters.append(GeminiCliAdapter())
-        return adapters
-    if scope == "api":
-        return list(API_ADAPTERS)
-    adapters = list(API_ADAPTERS + CLI_ADAPTERS)
-    if settings.include_gemini_cli_collector:
-        adapters.append(GeminiCliAdapter())
-    return adapters
+        adapters = list(CLI_ADAPTERS) + list(CREDIT_ADAPTERS) + list(LEGACY_CLI_ADAPTERS)
+    elif scope == "api":
+        adapters = list(API_ADAPTERS) + list(CREDIT_ADAPTERS)
+    else:
+        adapters = list(API_ADAPTERS + CLI_ADAPTERS + CREDIT_ADAPTERS + LEGACY_CLI_ADAPTERS)
+    return [a for a in adapters if settings.entry_enabled(a.provider_id)]
+
+
+def split_reachable(
+    snapshots: list[ProviderSnapshot], hide_unreachable: bool
+) -> tuple[list[ProviderSnapshot], list[ProviderSnapshot]]:
+    """Return (shown, hidden). Hidden cards are the ones that returned no usable data."""
+    if not hide_unreachable:
+        return snapshots, []
+    shown = [s for s in snapshots if s.status not in UNREACHABLE_STATUSES]
+    hidden = [s for s in snapshots if s.status in UNREACHABLE_STATUSES]
+    return shown, hidden

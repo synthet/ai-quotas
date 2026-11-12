@@ -9,14 +9,15 @@ Track **current consumer/CLI subscription quota only** for exactly four products
 3. **Claude**
 4. **Antigravity**
 
-Do **not** include:
+Do **not** include, unless `QUOTA_SCOPE` is `api` or `all`:
 
 - OpenAI API
-- Anthropic API
+- Anthropic API rate-limit probes
 - Gemini API
 - API billing
-- API credits
 - API RPM / TPM / RPD
+
+The signed-in Claude API credit card (`ant`, one token) is included in every scope. It reports available or unavailable. It does not show the console dollar balance.
 - organization spend
 - dummy inference probes
 

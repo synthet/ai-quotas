@@ -1,6 +1,6 @@
 import asyncio
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -10,6 +10,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.config import get_settings
 from app.models.quota import DashboardSnapshot
+from app.providers import split_reachable
 from app.services.aggregator import refresh_snapshot
 from app.state import AppState
 
@@ -30,7 +31,19 @@ def _fmt_metric(val):
     return val
 
 
+def _fmt_reset(val: str) -> str:
+    """Show ISO reset times as 'Nov 12, 18:53 UTC'; leave other text (e.g. Claude's) as is."""
+    try:
+        dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return val
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc)
+    return f"{dt:%b} {dt.day}, {dt:%H:%M} UTC"
+
+
 jinja_env.filters["fmt"] = _fmt_metric
+jinja_env.filters["reset"] = _fmt_reset
 app_state = AppState()
 
 APP_VERSION = "0.1.0"
@@ -85,9 +98,12 @@ def _snapshot_or_empty() -> DashboardSnapshot:
 
 def _template_context(request: Request) -> dict:
     settings = get_settings()
+    snapshot = _snapshot_or_empty()
+    shown, hidden = split_reachable(snapshot.providers, settings.hide_unreachable)
     return {
         "request": request,
-        "snapshot": _snapshot_or_empty(),
+        "snapshot": snapshot.model_copy(update={"providers": shown}),
+        "hidden_providers": hidden,
         "last_refresh": app_state.last_refresh,
         "refreshing": app_state.refreshing,
         "probe_interval_sec": settings.probe_interval_sec,

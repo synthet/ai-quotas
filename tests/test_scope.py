@@ -10,6 +10,7 @@ def test_cli_scope_excludes_api():
         "openai.chatgpt_codex",
         "cursor.cursor",
         "google.antigravity",
+        "anthropic.anthropic_api_credits",
     ]
 
 
